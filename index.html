@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leistungsorientiertes Taschengeld</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .star-rating { display: inline-flex; flex-direction: row-reverse; }
+        .star-rating input { display: none; }
+        .star-rating label { cursor: pointer; color: #cbd5e1; transition: color 0.2s; }
+        .star-rating label:hover,
+        .star-rating label:hover ~ label,
+        .star-rating input:checked ~ label { color: #f59e0b; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+
+    <!-- TOP NAVIGATION -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-indigo-600 text-white p-2 rounded-xl shadow-md">
+                    <i data-lucide="coins" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900 leading-tight">Familie Taschengeld</h1>
+                    <p class="text-xs text-slate-500 font-medium">Performance-System</p>
+                </div>
+            </div>
+
+            <div id="nav-user-info" class="hidden items-center space-x-4">
+                <div class="flex items-center space-x-2 bg-slate-100 py-1.5 px-3 rounded-full border border-slate-200">
+                    <span id="current-user-avatar" class="text-xl"></span>
+                    <span id="current-user-name" class="text-sm font-semibold text-slate-700"></span>
+                    <span id="current-user-role-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700"></span>
+                </div>
+                <button type="button" onclick="openSettingsModal()" id="btn-settings" class="hidden p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition" title="Einstellungen">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                </button>
+                <button type="button" onclick="logout()" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg transition" title="Abmelden">
+                    <i data-lucide="log-out" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- LOGIN CONTAINER -->
+    <div id="login-container" class="flex-1 flex items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-xl border border-slate-100 max-w-md w-full space-y-6">
+            <div class="text-center space-y-2">
+                <div class="inline-flex bg-indigo-50 p-3 rounded-2xl text-indigo-600 mb-2">
+                    <i data-lucide="lock" class="w-8 h-8"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-900">Anmelden</h2>
+                <p class="text-sm text-slate-500">Wähle deinen Account und gib dein Passwort ein.</p>
+            </div>
+
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Benutzer</label>
+                    <select id="login-user-select" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Passwort</label>
+                    <input type="password" id="login-password" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="••••••••">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-indigo-200 transition duration-150 flex items-center justify-center space-x-2">
+                    <span>Anmelden</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN APP CONTENT -->
+    <main id="app-container" class="hidden flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        
+        <!-- DASHBOARD HEADER & STATS -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Child Selector -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-between space-y-4">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Aktives Kind</span>
+                    <i data-lucide="user" class="w-5 h-5 text-indigo-500"></i>
+                </div>
+                <div id="child-select-wrapper" class="space-y-2">
+                </div>
+            </div>
+
+            <!-- Total Earnings Balance -->
+            <div class="bg-gradient-to-br from-indigo-600 to-indigo-700 text-white p-6 rounded-2xl shadow-lg shadow-indigo-100 flex flex-col justify-between space-y-4">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-indigo-200 uppercase tracking-wider">Verfügbares Guthaben</span>
+                    <i data-lucide="wallet" class="w-5 h-5 text-indigo-200"></i>
+                </div>
+                <div class="flex items-baseline space-x-2">
+                    <span id="stat-balance" class="text-3xl font-extrabold tracking-tight">0,00 €</span>
+                    <span class="text-xs text-indigo-200 font-medium">freigegeben</span>
+                </div>
+                <div class="pt-2 border-t border-indigo-500/50 flex justify-between items-center text-xs">
+                    <span class="text-indigo-200">Offene Anfragen:</span>
+                    <span id="stat-pending-payout" class="font-bold text-white">0,00 €</span>
+                </div>
+            </div>
+
+            <!-- Monthly Stars & Payout Action -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-between space-y-4">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Monats-Performance</span>
+                    <i data-lucide="star" class="w-5 h-5 text-amber-500"></i>
+                </div>
+                <div class="flex items-baseline justify-between">
+                    <div>
+                        <span id="stat-stars" class="text-3xl font-extrabold text-slate-900">0</span>
+                        <span class="text-sm text-slate-500 font-medium"> ⭐ in diesem Monat</span>
+                    </div>
+                    <span id="stat-earned-month" class="text-lg font-bold text-emerald-600">+0,00 €</span>
+                </div>
+                <button type="button" onclick="openPayoutModal()" id="btn-request-payout" class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-sm font-semibold py-2 px-4 rounded-xl transition flex items-center justify-center space-x-2">
+                    <i data-lucide="send" class="w-4 h-4"></i>
+                    <span>Auszahlung anfordern</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- PARENT APPROVAL QUEUE -->
+        <section id="approval-queue-section" class="hidden bg-amber-50/50 border border-amber-200/80 rounded-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-amber-500 text-white p-2 rounded-xl">
+                        <i data-lucide="clock" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">Offene Freigaben & Auszahlungen</h3>
+                        <p class="text-xs text-slate-500">Überprüfe und genehmige Erledigungen oder Auszahlungen der Kinder.</p>
+                    </div>
+                </div>
+                <span id="pending-count-badge" class="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-1 rounded-full border border-amber-200">0 offen</span>
+            </div>
+
+            <div id="pending-items-list" class="space-y-3">
+            </div>
+        </section>
+
+        <!-- MONTH NAVIGATION & TASKS TABLE -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+            <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-indigo-50 text-indigo-600 p-2 rounded-xl">
+                        <i data-lucide="calendar" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-900">Aufgaben & Leistungstabelle</h3>
+                </div>
+
+                <div class="flex items-center space-x-2 self-start sm:self-auto">
+                    <button type="button" onclick="changeMonth(-1)" class="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition">
+                        <i data-lucide="chevron-left" class="w-4 h-4 text-slate-600"></i>
+                    </button>
+                    <span id="current-month-label" class="text-sm font-bold text-slate-700 min-w-[120px] text-center">Oktober 2026</span>
+                    <button type="button" onclick="changeMonth(1)" class="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition">
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-slate-600"></i>
+                    </button>
+                    <button type="button" onclick="jumpToToday()" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold px-3 py-2 bg-indigo-50 rounded-lg transition">Heute</button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50/80 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
