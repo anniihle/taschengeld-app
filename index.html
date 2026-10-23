@@ -178,3 +178,328 @@
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="bg-slate-50/80 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                            <th class="py-3.5 px-6">Kategorie & Aufgabe</th>
+                            <th class="py-3.5 px-4 text-center">Tarif</th>
+                            <th class="py-3.5 px-4 text-center">Bewertung (Sterne)</th>
+                            <th class="py-3.5 px-4 text-center">Status</th>
+                            <th class="py-3.5 px-6 text-right">Aktion</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tasks-table-body" class="divide-y divide-slate-100 text-sm">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- PAYOUT REQUEST MODAL -->
+    <div id="payout-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-6 border border-slate-100">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <h3 class="text-lg font-bold text-slate-900">Auszahlung anfordern</h3>
+                <button type="button" onclick="closePayoutModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <form onsubmit="handlePayoutSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Betrag (€)</label>
+                    <input type="number" id="payout-amount" step="0.50" min="0.50" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="10.00">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Auszahlungsweg</label>
+                    <select id="payout-method" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <option value="Bankkonto">Bankkonto / Überweisung</option>
+                        <option value="PayPal">PayPal</option>
+                        <option value="Bargeld">Bargeld</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Hinweis / IBAN / PayPal-E-Mail</label>
+                    <input type="text" id="payout-details" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="z. B. IBAN oder mail@paypal.de">
+                </div>
+
+                <div class="pt-4 flex items-center justify-end space-x-3">
+                    <button type="button" onclick="closePayoutModal()" class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50">Abbrechen</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-md shadow-emerald-100">Anfrage senden</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- SETTINGS MODAL (PARENTS ONLY) -->
+    <div id="settings-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-3xl w-full p-6 space-y-6 border border-slate-100 max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="settings" class="w-5 h-5 text-indigo-600"></i>
+                    <h3 class="text-lg font-bold text-slate-900">Einstellungen & Konfiguration</h3>
+                </div>
+                <button type="button" onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- TABS -->
+            <div class="flex border-b border-slate-200 space-x-4">
+                <button type="button" onclick="switchSettingsTab('users')" id="tab-btn-users" class="pb-2 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600">Benutzer & Passwörter</button>
+                <button type="button" onclick="switchSettingsTab('tasks')" id="tab-btn-tasks" class="pb-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700">Kategorien & Aufgaben (€/⭐)</button>
+            </div>
+
+            <!-- TAB 1: USERS MANAGEMENT -->
+            <div id="tab-users" class="space-y-6">
+                <div class="space-y-4">
+                    <h4 class="text-sm font-bold text-slate-800">Bestehende Benutzer</h4>
+                    <div id="users-list" class="space-y-3">
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 space-y-4">
+                    <h4 class="text-sm font-bold text-slate-800">Neuen Benutzer anlegen</h4>
+                    <form onsubmit="handleAddUser(event)" class="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                        <input type="text" id="new-user-name" placeholder="Name" required class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                        <input type="password" id="new-user-password" placeholder="Passwort" required class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                        <select id="new-user-role" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                            <option value="child">Kind</option>
+                            <option value="parent">Eltern</option>
+                        </select>
+                        <select id="new-user-avatar" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                            <option value="👦">👦 Junge</option>
+                            <option value="👧">👧 Mädchen</option>
+                            <option value="👨‍👩‍👧">👨‍👩‍👧 Eltern</option>
+                            <option value="🐶">🐶 Hund</option>
+                            <option value="🐱">🐱 Katze</option>
+                        </select>
+                        <button type="submit" class="bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 py-2">Hinzufügen</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- TAB 2: TASKS & RATES MANAGEMENT -->
+            <div id="tab-tasks" class="hidden space-y-6">
+                <div class="space-y-4">
+                    <h4 class="text-sm font-bold text-slate-800">Aufgaben & Tarife pro Einzelaufgabe (€/⭐)</h4>
+                    <div id="settings-tasks-list" class="space-y-3">
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 space-y-4">
+                    <h4 class="text-sm font-bold text-slate-800">Neue Aufgabe hinzufügen</h4>
+                    <form onsubmit="handleAddTask(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                        <input type="text" id="new-task-title" placeholder="Aufgabenname" required class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                        <select id="new-task-category" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                            <option value="Haushalt">Haushalt</option>
+                            <option value="Garten">Garten</option>
+                            <option value="Schule">Schule</option>
+                        </select>
+                        <input type="number" id="new-task-rate" step="0.10" min="0.10" value="1.00" placeholder="€ / Stern" required class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                        <button type="submit" class="bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 py-2">Erstellen</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        const DEFAULT_USERS = [
+            { id: 'eltern', name: 'Eltern', role: 'parent', avatar: '👨‍👩‍👧', password: 'eltern123' },
+            { id: 'leon', name: 'Leon', role: 'child', avatar: '👦', password: 'leon123' },
+            { id: 'laura', name: 'Laura', role: 'child', avatar: '👧', password: 'laura123' }
+        ];
+
+        const DEFAULT_TASKS = [
+            { id: 't1', category: 'Haushalt', title: 'Spülmaschine ausräumen', rate: 0.50 },
+            { id: 't2', category: 'Haushalt', title: 'Zimmer aufräumen', rate: 1.00 },
+            { id: 't3', category: 'Haushalt', title: 'Müll rausbringen', rate: 0.50 },
+            { id: 't4', category: 'Garten', title: 'Rasen mähen', rate: 2.00 },
+            { id: 't5', category: 'Garten', title: 'Unkraut jäten', rate: 1.50 },
+            { id: 't6', category: 'Schule', title: 'Hausaufgaben erledigen', rate: 1.00 }
+        ];
+
+        let appState = {
+            currentUser: null,
+            activeChildId: 'leon',
+            selectedMonthKey: new Date().toISOString().slice(0, 7),
+            users: DEFAULT_USERS,
+            tasks: DEFAULT_TASKS,
+            submissions: {},
+            balances: { leon: 0.00, laura: 0.00 },
+            payouts: []
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            loadState();
+            populateUserSelect();
+        });
+
+        function loadState() {
+            try {
+                const localUsers = localStorage.getItem('pm_users');
+                if (localUsers && JSON.parse(localUsers).length > 0) {
+                    appState.users = JSON.parse(localUsers);
+                } else {
+                    appState.users = DEFAULT_USERS;
+                }
+
+                const localTasks = localStorage.getItem('pm_tasks');
+                if (localTasks && JSON.parse(localTasks).length > 0) {
+                    appState.tasks = JSON.parse(localTasks);
+                } else {
+                    appState.tasks = DEFAULT_TASKS;
+                }
+
+                const localSubmissions = localStorage.getItem('pm_submissions');
+                if (localSubmissions) appState.submissions = JSON.parse(localSubmissions);
+
+                const localBalances = localStorage.getItem('pm_balances');
+                if (localBalances) appState.balances = JSON.parse(localBalances);
+
+                const localPayouts = localStorage.getItem('pm_payouts');
+                if (localPayouts) appState.payouts = JSON.parse(localPayouts);
+            } catch (e) {
+                console.error("Fehler beim Laden:", e);
+                appState.users = DEFAULT_USERS;
+                appState.tasks = DEFAULT_TASKS;
+            }
+        }
+
+        function saveState() {
+            try {
+                localStorage.setItem('pm_users', JSON.stringify(appState.users));
+                localStorage.setItem('pm_tasks', JSON.stringify(appState.tasks));
+                localStorage.setItem('pm_submissions', JSON.stringify(appState.submissions));
+                localStorage.setItem('pm_balances', JSON.stringify(appState.balances));
+                localStorage.setItem('pm_payouts', JSON.stringify(appState.payouts));
+            } catch (e) {
+                console.error("Fehler beim Speichern:", e);
+            }
+        }
+
+        function populateUserSelect() {
+            const select = document.getElementById('login-user-select');
+            if (!select) return;
+            select.innerHTML = appState.users.map(u => 
+                `<option value="${u.id}">${u.avatar} ${u.name} (${u.role === 'parent' ? 'Eltern' : 'Kind'})</option>`
+            ).join('');
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const userId = document.getElementById('login-user-select').value;
+            const password = document.getElementById('login-password').value;
+
+            const user = appState.users.find(u => u.id === userId);
+            if (user && user.password === password) {
+                appState.currentUser = user;
+                if (user.role === 'child') {
+                    appState.activeChildId = user.id;
+                }
+                document.getElementById('login-container').classList.add('hidden');
+                document.getElementById('app-container').classList.remove('hidden');
+                document.getElementById('nav-user-info').classList.remove('hidden');
+                document.getElementById('nav-user-info').classList.add('flex');
+                
+                updateUI();
+            } else {
+                alert('Falsches Passwort!');
+            }
+        }
+
+        function logout() {
+            appState.currentUser = null;
+            document.getElementById('app-container').classList.add('hidden');
+            document.getElementById('nav-user-info').classList.add('hidden');
+            document.getElementById('login-container').classList.remove('hidden');
+            document.getElementById('login-password').value = '';
+            populateUserSelect();
+        }
+
+        function updateUI() {
+            if (!appState.currentUser) return;
+
+            document.getElementById('current-user-avatar').textContent = appState.currentUser.avatar;
+            document.getElementById('current-user-name').textContent = appState.currentUser.name;
+            document.getElementById('current-user-role-badge').textContent = appState.currentUser.role === 'parent' ? 'ELTERN' : 'KIND';
+
+            const settingsBtn = document.getElementById('btn-settings');
+            if (appState.currentUser.role === 'parent') {
+                settingsBtn.classList.remove('hidden');
+            } else {
+                settingsBtn.classList.add('hidden');
+            }
+
+            const childSelectWrapper = document.getElementById('child-select-wrapper');
+            const children = appState.users.filter(u => u.role === 'child');
+            
+            if (appState.currentUser.role === 'parent') {
+                childSelectWrapper.innerHTML = `
+                    <select id="active-child-select" onchange="switchActiveChild(this.value)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-semibold focus:ring-2 focus:ring-indigo-500">
+                        ${children.map(c => `<option value="${c.id}" ${c.id === appState.activeChildId ? 'selected' : ''}>${c.avatar}${c.name}</option>`).join('')}
+                    </select>
+                `;
+            } else {
+                childSelectWrapper.innerHTML = `
+                    <div class="flex items-center space-x-2 text-lg font-bold text-slate-800">
+                        <span>${appState.currentUser.avatar}</span>
+                        <span>${appState.currentUser.name}</span>
+                    </div>
+                `;
+            }
+
+            const [year, month] = appState.selectedMonthKey.split('-');
+            const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+            document.getElementById('current-month-label').textContent = `${monthNames[parseInt(month) - 1]} ${year}`;
+
+            renderStats();
+            renderApprovalQueue();
+            renderTasksTable();
+        }
+
+        function switchActiveChild(childId) {
+            appState.activeChildId = childId;
+            updateUI();
+        }
+
+        function renderStats() {
+            const activeChild = appState.users.find(u => u.id === appState.activeChildId);
+            if (!activeChild) return;
+
+            const balance = appState.balances[activeChild.id] || 0.00;
+            document.getElementById('stat-balance').textContent = `${balance.toFixed(2).replace('.', ',')} €`;
+
+            const pendingPayoutSum = appState.payouts
+                .filter(p => p.childId === activeChild.id && p.status === 'pending')
+                .reduce((sum, p) => sum + parseFloat(p.amount), 0);
+            document.getElementById('stat-pending-payout').textContent = `${pendingPayoutSum.toFixed(2).replace('.', ',')} €`;
+
+            let totalStarsMonth = 0;
+            let totalEarnedMonth = 0;
+
+            appState.tasks.forEach(task => {
+                const subKey = `${activeChild.id}_${appState.selectedMonthKey}_${task.id}`;
+                const submission = appState.submissions[subKey];
+                if (submission && submission.stars > 0 && submission.status === 'approved') {
+                    totalStarsMonth += submission.stars;
+                    totalEarnedMonth += submission.stars * task.rate;
+                }
+            });
+
+            document.getElementById('stat-stars').textContent = totalStarsMonth;
+            document.getElementById('stat-earned-month').textContent = `+${totalEarnedMonth.toFixed(2).replace('.', ',')} €`;
+        }
+
+        function renderApprovalQueue() {
+            const queueSection = document.getElementById('approval-queue-section');
+            if (appState.currentUser.role !== 'parent') {
+                queueSection.classList.add('hidden');
+                return;
+            }
+
+            queueSection.classList.remove('hidden');
+            const pendingList = document.getElementById('pending-items-list');
