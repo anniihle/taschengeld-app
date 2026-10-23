@@ -341,17 +341,32 @@
         function loadState() {
             try {
                 const localUsers = localStorage.getItem('pm_users');
-                if (localUsers && JSON.parse(localUsers).length > 0) {
-                    appState.users = JSON.parse(localUsers);
+                // FORCE DEFAULT USERS IF EMPTY OR INVALID
+                if (localUsers) {
+                    const parsed = JSON.parse(localUsers);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        appState.users = parsed;
+                    } else {
+                        appState.users = DEFAULT_USERS;
+                        localStorage.setItem('pm_users', JSON.stringify(DEFAULT_USERS));
+                    }
                 } else {
                     appState.users = DEFAULT_USERS;
+                    localStorage.setItem('pm_users', JSON.stringify(DEFAULT_USERS));
                 }
 
                 const localTasks = localStorage.getItem('pm_tasks');
-                if (localTasks && JSON.parse(localTasks).length > 0) {
-                    appState.tasks = JSON.parse(localTasks);
+                if (localTasks) {
+                    const parsedTasks = JSON.parse(localTasks);
+                    if (Array.isArray(parsedTasks) && parsedTasks.length > 0) {
+                        appState.tasks = parsedTasks;
+                    } else {
+                        appState.tasks = DEFAULT_TASKS;
+                        localStorage.setItem('pm_tasks', JSON.stringify(DEFAULT_TASKS));
+                    }
                 } else {
                     appState.tasks = DEFAULT_TASKS;
+                    localStorage.setItem('pm_tasks', JSON.stringify(DEFAULT_TASKS));
                 }
 
                 const localSubmissions = localStorage.getItem('pm_submissions');
@@ -503,3 +518,222 @@
 
             queueSection.classList.remove('hidden');
             const pendingList = document.getElementById('pending-items-list');
+            pendingList.innerHTML = '';
+
+            let count = 0;
+
+            Object.keys(appState.submissions).forEach(subKey => {
+                const sub = appState.submissions[subKey];
+                if (sub.status === 'pending') {
+                    count++;
+                    const [childId, monthKey, taskId] = subKey.split('_');
+                    const child = appState.users.find(u => u.id === childId);
+                    const task = appState.tasks.find(t => t.id === taskId);
+                    const totalValue = (sub.stars * (task ? task.rate : 1)).toFixed(2).replace('.', ',');
+
+                    const card = document.createElement('div');
+                    card.className = "bg-white p-4 rounded-xl border border-amber-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3";
+                    card.innerHTML = `
+                        <div class="flex items-center space-x-3">
+                            <span class="text-2xl">${child ? child.avatar : '👤'}</span>
+                            <div>
+                                <p class="text-sm font-bold text-slate-800">${child ? child.name : 'Kind'}: <span class="text-indigo-600">${task ? task.title : 'Aufgabe'}</span></p>
+                                <p class="text-xs text-slate-500">${sub.stars} ⭐ eingetragen • Wert: <span class="font-bold text-emerald-600">${totalValue} €</span></p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
+                            <button type="button" onclick="approveSubmission('${subKey}')" class="bg-emerald-600 text-white text-xs font-semibold px-3 py-2 rounded-lg hover:bg-emerald-700">Freigeben</button>
+                            <button type="button" onclick="rejectSubmission('${subKey}')" class="bg-rose-100 text-rose-700 text-xs font-semibold px-3 py-2 rounded-lg hover:bg-rose-200">Ablehnen</button>
+                        </div>
+                    `;
+                    pendingList.appendChild(card);
+                }
+            });
+
+            appState.payouts.filter(p => p.status === 'pending').forEach(payout => {
+                count++;
+                const child = appState.users.find(u => u.id === payout.childId);
+                const card = document.createElement('div');
+                card.className = "bg-white p-4 rounded-xl border border-emerald-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3";
+                card.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <span class="text-2xl">${child ? child.avatar : '👤'}</span>
+                        <div>
+                            <p class="text-sm font-bold text-slate-800">Auszahlungsanfrage: <span class="text-emerald-600">${parseFloat(payout.amount).toFixed(2).replace('.', ',')} €</span></p>
+                            <p class="text-xs text-slate-500">Via ${payout.method} (${payout.details})</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
+                        <button type="button" onclick="approvePayout('${payout.id}')" class="bg-emerald-600 text-white text-xs font-semibold px-3 py-2 rounded-lg hover:bg-emerald-700">Als Bezahlt Markieren</button>
+                    </div>
+                `;
+                pendingList.appendChild(card);
+            });
+
+            document.getElementById('pending-count-badge').textContent = `${count} offen`;
+            if (count === 0) {
+                pendingList.innerHTML = `<p class="text-xs text-slate-500 italic">Keine offenen Freigaben oder Auszahlungsanfragen vorhanden.</p>`;
+            }
+        }
+
+        function renderTasksTable() {
+            const tbody = document.getElementById('tasks-table-body');
+            tbody.innerHTML = '';
+
+            const activeChildId = appState.activeChildId;
+
+            appState.tasks.forEach(task => {
+                const subKey = `${activeChildId}_${appState.selectedMonthKey}_${task.id}`;
+                const submission = appState.submissions[subKey] || { stars: 0, status: 'none' };
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50/50 transition";
+
+                let statusBadge = `<span class="text-xs text-slate-400">Kein Eintrag</span>`;
+                if (submission.status === 'pending') {
+                    statusBadge = `<span class="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-1 rounded-full">⚡ Ausstehend</span>`;
+                } else if (submission.status === 'approved') {
+                    statusBadge = `<span class="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-1 rounded-full">✓ Genehmigt</span>`;
+                }
+
+                tr.innerHTML = `
+                    <td class="py-4 px-6">
+                        <div class="font-bold text-slate-800">${task.title}</div>
+                        <div class="text-xs text-slate-400">${task.category}</div>
+                    </td>
+                    <td class="py-4 px-4 text-center">
+                        <span class="bg-slate-100 text-slate-700 text-xs font-semibold px-2.5 py-1 rounded-lg border border-slate-200">
+                            ${task.rate.toFixed(2).replace('.', ',')} € / ⭐
+                        </span>
+                    </td>
+                    <td class="py-4 px-4 text-center">
+                        <div class="star-rating">
+                            ${[5,4,3,2,1].map(star => `
+                                <input type="radio" id="star-${task.id}-${star}" name="rating-${task.id}" value="${star}" ${submission.stars === star ? 'checked' : ''} onchange="handleStarSelect('${task.id}', ${star})" ${submission.status === 'approved' && appState.currentUser.role !== 'parent' ? 'disabled' : ''}>
+                                <label for="star-${task.id}-${star}" class="text-xl">★</label>
+                            `).join('')}
+                        </div>
+                    </td>
+                    <td class="py-4 px-4 text-center">
+                        ${statusBadge}
+                    </td>
+                    <td class="py-4 px-6 text-right">
+                        ${submission.stars > 0 && submission.status !== 'approved' ? `
+                            <button type="button" onclick="handleSaveTask('${task.id}')" class="bg-indigo-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-indigo-700">
+                                Senden
+                            </button>
+                        ` : ''}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function handleStarSelect(taskId, stars) {
+            const activeChildId = appState.activeChildId;
+            const subKey = `${activeChildId}_${appState.selectedMonthKey}_${taskId}`;
+
+            if (!appState.submissions[subKey]) {
+                appState.submissions[subKey] = { stars: 0, status: 'none' };
+            }
+            appState.submissions[subKey].stars = stars;
+            renderTasksTable();
+        }
+
+        function handleSaveTask(taskId) {
+            const activeChildId = appState.activeChildId;
+            const subKey = `${activeChildId}_${appState.selectedMonthKey}_${taskId}`;
+
+            if (appState.submissions[subKey]) {
+                appState.submissions[subKey].status = 'pending';
+                appState.submissions[subKey].timestamp = Date.now();
+                saveState();
+                updateUI();
+                alert('Erledigung eingereicht! Wartet auf Freigabe der Eltern.');
+            }
+        }
+
+        function approveSubmission(subKey) {
+            const sub = appState.submissions[subKey];
+            if (!sub) return;
+
+            const [childId, monthKey, taskId] = subKey.split('_');
+            const task = appState.tasks.find(t => t.id === taskId);
+            
+            sub.status = 'approved';
+
+            const earned = sub.stars * (task ? task.rate : 1.00);
+            appState.balances[childId] = (appState.balances[childId] || 0) + earned;
+
+            saveState();
+            updateUI();
+        }
+
+        function rejectSubmission(subKey) {
+            delete appState.submissions[subKey];
+            saveState();
+            updateUI();
+        }
+
+        function changeMonth(delta) {
+            const [y, m] = appState.selectedMonthKey.split('-').map(Number);
+            const date = new Date(y, m - 1 + delta, 1);
+            appState.selectedMonthKey = date.toISOString().slice(0, 7);
+            updateUI();
+        }
+
+        function jumpToToday() {
+            appState.selectedMonthKey = new Date().toISOString().slice(0, 7);
+            updateUI();
+        }
+
+        function openPayoutModal() {
+            document.getElementById('payout-modal').classList.remove('hidden');
+        }
+
+        function closePayoutModal() {
+            document.getElementById('payout-modal').classList.add('hidden');
+        }
+
+        function handlePayoutSubmit(e) {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('payout-amount').value);
+            const method = document.getElementById('payout-method').value;
+            const details = document.getElementById('payout-details').value;
+
+            const activeChildId = appState.activeChildId;
+            const currentBalance = appState.balances[activeChildId] || 0;
+
+            if (amount > currentBalance) {
+                alert('Auszahlungsbetrag übersteigt dein freigegebenes Guthaben!');
+                return;
+            }
+
+            appState.payouts.push({
+                id: 'p_' + Date.now(),
+                childId: activeChildId,
+                amount: amount,
+                method: method,
+                details: details,
+                status: 'pending',
+                timestamp: Date.now()
+            });
+
+            saveState();
+            closePayoutModal();
+            updateUI();
+            alert('Auszahlungsanfrage wurde an die Eltern gesendet!');
+        }
+
+        function approvePayout(payoutId) {
+            const payout = appState.payouts.find(p => p.id === payoutId);
+            if (!payout) return;
+
+            payout.status = 'approved';
+            appState.balances[payout.childId] = Math.max(0, (appState.balances[payout.childId] || 0) - payout.amount);
+
+            saveState();
+            updateUI();
+        }
+
+        function openSettingsModal() {
