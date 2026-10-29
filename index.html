@@ -4,11 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Leistungsorientiertes Taschengeld</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; }
+        .star-rating { display: inline-flex; flex-direction: row-reverse; }
+        .star-rating input { display: none; }
+        .star-rating label { cursor: pointer; color: #cbd5e1; transition: color 0.2s; }
+        .star-rating label:hover,
+        .star-rating label:hover ~ label,
+        .star-rating input:checked ~ label { color: #f59e0b; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
@@ -32,6 +43,9 @@
                     <span id="current-user-name" class="text-sm font-semibold text-slate-700"></span>
                     <span id="current-user-role-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700"></span>
                 </div>
+                <button type="button" onclick="openSettingsModal()" id="btn-settings" class="hidden p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition" title="Einstellungen">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                </button>
                 <button type="button" onclick="logout()" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg transition" title="Abmelden">
                     <i data-lucide="log-out" class="w-5 h-5"></i>
                 </button>
@@ -53,7 +67,7 @@
             <form onsubmit="handleLogin(event)" class="space-y-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Benutzer</label>
-                    <!-- Fallback-Optionen direkt im HTML verankert -->
+                    <!-- Hardcoded Option-Tags, um Leere-Dropdown-Fehler im Cache auszuschließen -->
                     <select id="login-user-select" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                         <option value="eltern">👨‍👩‍👧 Eltern (Eltern)</option>
                         <option value="leon">👦 Leon (Kind)</option>
@@ -72,14 +86,229 @@
         </div>
     </div>
 
-    <!-- MAIN APP CONTAINER -->
-    <main id="app-container" class="hidden flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-center">
-            <h2 class="text-xl font-bold text-slate-800">Erfolgreich angemeldet!</h2>
-            <p class="text-slate-500 text-sm mt-1">Das Dashboard ist einsatzbereit.</p>
+    <!-- MAIN APP CONTENT -->
+    <main id="app-container" class="hidden flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        
+        <!-- DASHBOARD HEADER & STATS -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Child Selector -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-between space-y-4">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Aktives Kind</span>
+                    <i data-lucide="user" class="w-5 h-5 text-indigo-500"></i>
+                </div>
+                <div id="child-select-wrapper" class="space-y-2">
+                </div>
+            </div>
+
+            <!-- Total Earnings Balance -->
+            <div class="bg-gradient-to-br from-indigo-600 to-indigo-700 text-white p-6 rounded-2xl shadow-lg shadow-indigo-100 flex flex-col justify-between space-y-4">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-indigo-200 uppercase tracking-wider">Verfügbares Guthaben</span>
+                    <i data-lucide="wallet" class="w-5 h-5 text-indigo-200"></i>
+                </div>
+                <div class="flex items-baseline space-x-2">
+                    <span id="stat-balance" class="text-3xl font-extrabold tracking-tight">0,00 €</span>
+                    <span class="text-xs text-indigo-200 font-medium">freigegeben</span>
+                </div>
+                <div class="pt-2 border-t border-indigo-500/50 flex justify-between items-center text-xs">
+                    <span class="text-indigo-200">Offene Anfragen:</span>
+                    <span id="stat-pending-payout" class="font-bold text-white">0,00 €</span>
+                </div>
+            </div>
+
+            <!-- Monthly Stars & Payout Action -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-between space-y-4">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Monats-Performance</span>
+                    <i data-lucide="star" class="w-5 h-5 text-amber-500"></i>
+                </div>
+                <div class="flex items-baseline justify-between">
+                    <div>
+                        <span id="stat-stars" class="text-3xl font-extrabold text-slate-900">0</span>
+                        <span class="text-sm text-slate-500 font-medium"> ⭐ in diesem Monat</span>
+                    </div>
+                    <span id="stat-earned-month" class="text-lg font-bold text-emerald-600">+0,00 €</span>
+                </div>
+                <button type="button" onclick="openPayoutModal()" id="btn-request-payout" class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-sm font-semibold py-2 px-4 rounded-xl transition flex items-center justify-center space-x-2">
+                    <i data-lucide="send" class="w-4 h-4"></i>
+                    <span>Auszahlung anfordern</span>
+                </button>
+            </div>
         </div>
+
+        <!-- PARENT APPROVAL QUEUE -->
+        <section id="approval-queue-section" class="hidden bg-amber-50/50 border border-amber-200/80 rounded-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-amber-500 text-white p-2 rounded-xl">
+                        <i data-lucide="clock" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">Offene Freigaben & Auszahlungen</h3>
+                        <p class="text-xs text-slate-500">Überprüfe und genehmige Erledigungen oder Auszahlungen der Kinder.</p>
+                    </div>
+                </div>
+                <span id="pending-count-badge" class="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-1 rounded-full border border-amber-200">0 offen</span>
+            </div>
+
+            <div id="pending-items-list" class="space-y-3">
+            </div>
+        </section>
+
+        <!-- MONTH NAVIGATION & TASKS TABLE -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+            <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-indigo-50 text-indigo-600 p-2 rounded-xl">
+                        <i data-lucide="calendar" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-900">Aufgaben & Leistungstabelle</h3>
+                </div>
+
+                <div class="flex items-center space-x-2 self-start sm:self-auto">
+                    <button type="button" onclick="changeMonth(-1)" class="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition">
+                        <i data-lucide="chevron-left" class="w-4 h-4 text-slate-600"></i>
+                    </button>
+                    <span id="current-month-label" class="text-sm font-bold text-slate-700 min-w-[120px] text-center">Oktober 2026</span>
+                    <button type="button" onclick="changeMonth(1)" class="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition">
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-slate-600"></i>
+                    </button>
+                    <button type="button" onclick="jumpToToday()" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold px-3 py-2 bg-indigo-50 rounded-lg transition">Heute</button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50/80 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                            <th class="py-3.5 px-6">Kategorie & Aufgabe</th>
+                            <th class="py-3.5 px-4 text-center">Tarif</th>
+                            <th class="py-3.5 px-4 text-center">Bewertung (Sterne)</th>
+                            <th class="py-3.5 px-4 text-center">Status</th>
+                            <th class="py-3.5 px-6 text-right">Aktion</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tasks-table-body" class="divide-y divide-slate-100 text-sm">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
     </main>
 
+    <!-- PAYOUT REQUEST MODAL -->
+    <div id="payout-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-6 border border-slate-100">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <h3 class="text-lg font-bold text-slate-900">Auszahlung anfordern</h3>
+                <button type="button" onclick="closePayoutModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <form onsubmit="handlePayoutSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Betrag (€)</label>
+                    <input type="number" id="payout-amount" step="0.50" min="0.50" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="10.00">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Auszahlungsweg</label>
+                    <select id="payout-method" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <option value="Bankkonto">Bankkonto / Überweisung</option>
+                        <option value="PayPal">PayPal</option>
+                        <option value="Bargeld">Bargeld</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Hinweis / IBAN / PayPal-E-Mail</label>
+                    <input type="text" id="payout-details" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="z. B. IBAN oder mail@paypal.de">
+                </div>
+
+                <div class="pt-4 flex items-center justify-end space-x-3">
+                    <button type="button" onclick="closePayoutModal()" class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50">Abbrechen</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-md shadow-emerald-100">Anfrage senden</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- SETTINGS MODAL (PARENTS ONLY) -->
+    <div id="settings-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-3xl w-full p-6 space-y-6 border border-slate-100 max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="settings" class="w-5 h-5 text-indigo-600"></i>
+                    <h3 class="text-lg font-bold text-slate-900">Einstellungen & Konfiguration</h3>
+                </div>
+                <button type="button" onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- TABS -->
+            <div class="flex border-b border-slate-200 space-x-4">
+                <button type="button" onclick="switchSettingsTab('users')" id="tab-btn-users" class="pb-2 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600">Benutzer & Passwörter</button>
+                <button type="button" onclick="switchSettingsTab('tasks')" id="tab-btn-tasks" class="pb-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700">Kategorien & Aufgaben (€/⭐)</button>
+            </div>
+
+            <!-- TAB 1: USERS MANAGEMENT -->
+            <div id="tab-users" class="space-y-6">
+                <div class="space-y-4">
+                    <h4 class="text-sm font-bold text-slate-800">Bestehende Benutzer</h4>
+                    <div id="users-list" class="space-y-3">
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 space-y-4">
+                    <h4 class="text-sm font-bold text-slate-800">Neuen Benutzer anlegen</h4>
+                    <form onsubmit="handleAddUser(event)" class="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                        <input type="text" id="new-user-name" placeholder="Name" required class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                        <input type="password" id="new-user-password" placeholder="Passwort" required class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                        <select id="new-user-role" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                            <option value="child">Kind</option>
+                            <option value="parent">Eltern</option>
+                        </select>
+                        <select id="new-user-avatar" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                            <option value="👦">👦 Junge</option>
+                            <option value="👧">👧 Mädchen</option>
+                            <option value="👨‍👩‍👧">👨‍👩‍👧 Eltern</option>
+                            <option value="🐶">🐶 Hund</option>
+                            <option value="🐱">🐱 Katze</option>
+                        </select>
+                        <button type="submit" class="bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 py-2">Hinzufügen</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- TAB 2: TASKS & RATES MANAGEMENT -->
+            <div id="tab-tasks" class="hidden space-y-6">
+                <div class="space-y-4">
+                    <h4 class="text-sm font-bold text-slate-800">Aufgaben & Tarife pro Einzelaufgabe (€/⭐)</h4>
+                    <div id="settings-tasks-list" class="space-y-3">
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 space-y-4">
+                    <h4 class="text-sm font-bold text-slate-800">Neue Aufgabe hinzufügen</h4>
+                    <form onsubmit="handleAddTask(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                        <input type="text" id="new-task-title" placeholder="Aufgabenname" required class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                        <select id="new-task-category" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                            <option value="Haushalt">Haushalt</option>
+                            <option value="Garten">Garten</option>
+                            <option value="Schule">Schule</option>
+                        </select>
+                        <input type="number" id="new-task-rate" step="0.10" min="0.10" value="1.00" placeholder="€ / Stern" required class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                        <button type="submit" class="bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 py-2">Erstellen</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
     <script>
         const DEFAULT_USERS = [
             { id: 'eltern', name: 'Eltern', role: 'parent', avatar: '👨‍👩‍👧', password: 'eltern123' },
@@ -87,27 +316,81 @@
             { id: 'laura', name: 'Laura', role: 'child', avatar: '👧', password: 'laura123' }
         ];
 
+        const DEFAULT_TASKS = [
+            { id: 't1', category: 'Haushalt', title: 'Spülmaschine ausräumen', rate: 0.50 },
+            { id: 't2', category: 'Haushalt', title: 'Zimmer aufräumen', rate: 1.00 },
+            { id: 't3', category: 'Haushalt', title: 'Müll rausbringen', rate: 0.50 },
+            { id: 't4', category: 'Garten', title: 'Rasen mähen', rate: 2.00 },
+            { id: 't5', category: 'Garten', title: 'Unkraut jäten', rate: 1.50 },
+            { id: 't6', category: 'Schule', title: 'Hausaufgaben erledigen', rate: 1.00 }
+        ];
+
+        let appState = {
+            currentUser: null,
+            activeChildId: 'leon',
+            selectedMonthKey: new Date().toISOString().slice(0, 7),
+            users: DEFAULT_USERS,
+            tasks: DEFAULT_TASKS,
+            submissions: {},
+            balances: { leon: 0.00, laura: 0.00 },
+            payouts: []
+        };
+
         window.addEventListener('DOMContentLoaded', () => {
             if (window.lucide) lucide.createIcons();
-            initUsers();
+            loadState();
+            populateUserSelect();
         });
 
-        function initUsers() {
+        function loadState() {
             try {
-                let users = JSON.parse(localStorage.getItem('pm_users'));
-                if (!users || !Array.isArray(users) || users.length === 0) {
-                    users = DEFAULT_USERS;
-                    localStorage.setItem('pm_users', JSON.stringify(DEFAULT_USERS));
+                const localUsers = localStorage.getItem('pm_users');
+                if (localUsers) {
+                    const parsed = JSON.parse(localUsers);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        appState.users = parsed;
+                    }
                 }
-                const select = document.getElementById('login-user-select');
-                if (select) {
-                    select.innerHTML = users.map(u => 
-                        `<option value="${u.id}">${u.avatar} ${u.name} (${u.role === 'parent' ? 'Eltern' : 'Kind'})</option>`
-                    ).join('');
+
+                const localTasks = localStorage.getItem('pm_tasks');
+                if (localTasks) {
+                    const parsedTasks = JSON.parse(localTasks);
+                    if (Array.isArray(parsedTasks) && parsedTasks.length > 0) {
+                        appState.tasks = parsedTasks;
+                    }
                 }
+
+                const localSubmissions = localStorage.getItem('pm_submissions');
+                if (localSubmissions) appState.submissions = JSON.parse(localSubmissions);
+
+                const localBalances = localStorage.getItem('pm_balances');
+                if (localBalances) appState.balances = JSON.parse(localBalances);
+
+                const localPayouts = localStorage.getItem('pm_payouts');
+                if (localPayouts) appState.payouts = JSON.parse(localPayouts);
             } catch (e) {
-                console.error("Speicherfehler:", e);
+                console.error("Fehler beim Laden:", e);
             }
+        }
+
+        function saveState() {
+            try {
+                localStorage.setItem('pm_users', JSON.stringify(appState.users));
+                localStorage.setItem('pm_tasks', JSON.stringify(appState.tasks));
+                localStorage.setItem('pm_submissions', JSON.stringify(appState.submissions));
+                localStorage.setItem('pm_balances', JSON.stringify(appState.balances));
+                localStorage.setItem('pm_payouts', JSON.stringify(appState.payouts));
+            } catch (e) {
+                console.error("Fehler beim Speichern:", e);
+            }
+        }
+
+        function populateUserSelect() {
+            const select = document.getElementById('login-user-select');
+            if (!select) return;
+            select.innerHTML = appState.users.map(u => 
+                `<option value="${u.id}">${u.avatar} ${u.name} (${u.role === 'parent' ? 'Eltern' : 'Kind'})</option>`
+            ).join('');
         }
 
         function handleLogin(e) {
@@ -115,31 +398,485 @@
             const userId = document.getElementById('login-user-select').value;
             const password = document.getElementById('login-password').value;
 
-            let users = DEFAULT_USERS;
-            try {
-                const stored = JSON.parse(localStorage.getItem('pm_users'));
-                if (stored && stored.length > 0) users = stored;
-            } catch(e) {}
-
-            const user = users.find(u => u.id === userId);
+            const user = appState.users.find(u => u.id === userId);
             if (user && user.password === password) {
+                appState.currentUser = user;
+                if (user.role === 'child') {
+                    appState.activeChildId = user.id;
+                }
                 document.getElementById('login-container').classList.add('hidden');
                 document.getElementById('app-container').classList.remove('hidden');
                 document.getElementById('nav-user-info').classList.remove('hidden');
                 document.getElementById('nav-user-info').classList.add('flex');
-                document.getElementById('current-user-avatar').textContent = user.avatar;
-                document.getElementById('current-user-name').textContent = user.name;
-                document.getElementById('current-user-role-badge').textContent = user.role.toUpperCase();
+                
+                updateUI();
             } else {
-                alert('Falsches Passwort! (Tipp: eltern123, leon123 oder laura123)');
+                alert('Falsches Passwort!');
             }
         }
 
         function logout() {
+            appState.currentUser = null;
             document.getElementById('app-container').classList.add('hidden');
             document.getElementById('nav-user-info').classList.add('hidden');
             document.getElementById('login-container').classList.remove('hidden');
             document.getElementById('login-password').value = '';
+            populateUserSelect();
+        }
+
+        function updateUI() {
+            if (!appState.currentUser) return;
+
+            document.getElementById('current-user-avatar').textContent = appState.currentUser.avatar;
+            document.getElementById('current-user-name').textContent = appState.currentUser.name;
+            document.getElementById('current-user-role-badge').textContent = appState.currentUser.role === 'parent' ? 'ELTERN' : 'KIND';
+
+            const settingsBtn = document.getElementById('btn-settings');
+            if (appState.currentUser.role === 'parent') {
+                settingsBtn.classList.remove('hidden');
+            } else {
+                settingsBtn.classList.add('hidden');
+            }
+
+            const childSelectWrapper = document.getElementById('child-select-wrapper');
+            const children = appState.users.filter(u => u.role === 'child');
+            
+            if (appState.currentUser.role === 'parent') {
+                childSelectWrapper.innerHTML = `
+                    <select id="active-child-select" onchange="switchActiveChild(this.value)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-semibold focus:ring-2 focus:ring-indigo-500">
+                        ${children.map(c => `<option value="${c.id}" ${c.id === appState.activeChildId ? 'selected' : ''}>${c.avatar} ${c.name}</option>`).join('')}
+                    </select>
+                `;
+            } else {
+                childSelectWrapper.innerHTML = `
+                    <div class="flex items-center space-x-2 text-lg font-bold text-slate-800">
+                        <span>${appState.currentUser.avatar}</span>
+                        <span>${appState.currentUser.name}</span>
+                    </div>
+                `;
+            }
+
+            const [year, month] = appState.selectedMonthKey.split('-');
+            const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+            document.getElementById('current-month-label').textContent = `${monthNames[parseInt(month) - 1]} ${year}`;
+
+            renderStats();
+            renderApprovalQueue();
+            renderTasksTable();
+        }
+
+        function switchActiveChild(childId) {
+            appState.activeChildId = childId;
+            updateUI();
+        }
+
+        function renderStats() {
+            const activeChild = appState.users.find(u => u.id === appState.activeChildId);
+            if (!activeChild) return;
+
+            const balance = appState.balances[activeChild.id] || 0.00;
+            document.getElementById('stat-balance').textContent = `${balance.toFixed(2).replace('.', ',')} €`;
+
+            const pendingPayoutSum = appState.payouts
+                .filter(p => p.childId === activeChild.id && p.status === 'pending')
+                .reduce((sum, p) => sum + parseFloat(p.amount), 0);
+            document.getElementById('stat-pending-payout').textContent = `${pendingPayoutSum.toFixed(2).replace('.', ',')} €`;
+
+            let totalStarsMonth = 0;
+            let totalEarnedMonth = 0;
+
+            appState.tasks.forEach(task => {
+                const subKey = `${activeChild.id}_${appState.selectedMonthKey}_${task.id}`;
+                const submission = appState.submissions[subKey];
+                if (submission && submission.stars > 0 && submission.status === 'approved') {
+                    totalStarsMonth += submission.stars;
+                    totalEarnedMonth += submission.stars * task.rate;
+                }
+            });
+
+            document.getElementById('stat-stars').textContent = totalStarsMonth;
+            document.getElementById('stat-earned-month').textContent = `+${totalEarnedMonth.toFixed(2).replace('.', ',')} €`;
+        }
+
+        function renderApprovalQueue() {
+            const queueSection = document.getElementById('approval-queue-section');
+            if (appState.currentUser.role !== 'parent') {
+                queueSection.classList.add('hidden');
+                return;
+            }
+
+            queueSection.classList.remove('hidden');
+            const pendingList = document.getElementById('pending-items-list');
+            pendingList.innerHTML = '';
+
+            let count = 0;
+
+            Object.keys(appState.submissions).forEach(subKey => {
+                const sub = appState.submissions[subKey];
+                if (sub.status === 'pending') {
+                    count++;
+                    const [childId, monthKey, taskId] = subKey.split('_');
+                    const child = appState.users.find(u => u.id === childId);
+                    const task = appState.tasks.find(t => t.id === taskId);
+                    const totalValue = (sub.stars * (task ? task.rate : 1)).toFixed(2).replace('.', ',');
+
+                    const card = document.createElement('div');
+                    card.className = "bg-white p-4 rounded-xl border border-amber-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3";
+                    card.innerHTML = `
+                        <div class="flex items-center space-x-3">
+                            <span class="text-2xl">${child ? child.avatar : '👤'}</span>
+                            <div>
+                                <p class="text-sm font-bold text-slate-800">${child ? child.name : 'Kind'}: <span class="text-indigo-600">${task ? task.title : 'Aufgabe'}</span></p>
+                                <p class="text-xs text-slate-500">${sub.stars} ⭐ eingetragen • Wert: <span class="font-bold text-emerald-600">${totalValue} €</span></p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
+                            <button type="button" onclick="approveSubmission('${subKey}')" class="bg-emerald-600 text-white text-xs font-semibold px-3 py-2 rounded-lg hover:bg-emerald-700">Freigeben</button>
+                            <button type="button" onclick="rejectSubmission('${subKey}')" class="bg-rose-100 text-rose-700 text-xs font-semibold px-3 py-2 rounded-lg hover:bg-rose-200">Ablehnen</button>
+                        </div>
+                    `;
+                    pendingList.appendChild(card);
+                }
+            });
+
+            appState.payouts.filter(p => p.status === 'pending').forEach(payout => {
+                count++;
+                const child = appState.users.find(u => u.id === payout.childId);
+                const card = document.createElement('div');
+                card.className = "bg-white p-4 rounded-xl border border-emerald-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3";
+                card.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <span class="text-2xl">${child ? child.avatar : '👤'}</span>
+                        <div>
+                            <p class="text-sm font-bold text-slate-800">Auszahlungsanfrage: <span class="text-emerald-600">${parseFloat(payout.amount).toFixed(2).replace('.', ',')} €</span></p>
+                            <p class="text-xs text-slate-500">Via ${payout.method} (${payout.details})</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
+                        <button type="button" onclick="approvePayout('${payout.id}')" class="bg-emerald-600 text-white text-xs font-semibold px-3 py-2 rounded-lg hover:bg-emerald-700">Als Bezahlt Markieren</button>
+                    </div>
+                `;
+                pendingList.appendChild(card);
+            });
+
+            document.getElementById('pending-count-badge').textContent = `${count} offen`;
+            if (count === 0) {
+                pendingList.innerHTML = `<p class="text-xs text-slate-500 italic">Keine offenen Freigaben oder Auszahlungsanfragen vorhanden.</p>`;
+            }
+        }
+
+        function renderTasksTable() {
+            const tbody = document.getElementById('tasks-table-body');
+            tbody.innerHTML = '';
+
+            const activeChildId = appState.activeChildId;
+
+            appState.tasks.forEach(task => {
+                const subKey = `${activeChildId}_${appState.selectedMonthKey}_${task.id}`;
+                const submission = appState.submissions[subKey] || { stars: 0, status: 'none' };
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50/50 transition";
+
+                let statusBadge = `<span class="text-xs text-slate-400">Kein Eintrag</span>`;
+                if (submission.status === 'pending') {
+                    statusBadge = `<span class="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-1 rounded-full">⚡ Ausstehend</span>`;
+                } else if (submission.status === 'approved') {
+                    statusBadge = `<span class="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-1 rounded-full">✓ Genehmigt</span>`;
+                }
+
+                tr.innerHTML = `
+                    <td class="py-4 px-6">
+                        <div class="font-bold text-slate-800">${task.title}</div>
+                        <div class="text-xs text-slate-400">${task.category}</div>
+                    </td>
+                    <td class="py-4 px-4 text-center">
+                        <span class="bg-slate-100 text-slate-700 text-xs font-semibold px-2.5 py-1 rounded-lg border border-slate-200">
+                            ${task.rate.toFixed(2).replace('.', ',')} € / ⭐
+                        </span>
+                    </td>
+                    <td class="py-4 px-4 text-center">
+                        <div class="star-rating">
+                            ${[5,4,3,2,1].map(star => `
+                                <input type="radio" id="star-${task.id}-${star}" name="rating-${task.id}" value="${star}" ${submission.stars === star ? 'checked' : ''} onchange="handleStarSelect('${task.id}', ${star})" ${submission.status === 'approved' && appState.currentUser.role !== 'parent' ? 'disabled' : ''}>
+                                <label for="star-${task.id}-${star}" class="text-xl">★</label>
+                            `).join('')}
+                        </div>
+                    </td>
+                    <td class="py-4 px-4 text-center">
+                        ${statusBadge}
+                    </td>
+                    <td class="py-4 px-6 text-right">
+                        ${submission.stars > 0 && submission.status !== 'approved' ? `
+                            <button type="button" onclick="handleSaveTask('${task.id}')" class="bg-indigo-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-indigo-700">
+                                Senden
+                            </button>
+                        ` : ''}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function handleStarSelect(taskId, stars) {
+            const activeChildId = appState.activeChildId;
+            const subKey = `${activeChildId}_${appState.selectedMonthKey}_${taskId}`;
+
+            if (!appState.submissions[subKey]) {
+                appState.submissions[subKey] = { stars: 0, status: 'none' };
+            }
+            appState.submissions[subKey].stars = stars;
+            renderTasksTable();
+        }
+
+        function handleSaveTask(taskId) {
+            const activeChildId = appState.activeChildId;
+            const subKey = `${activeChildId}_${appState.selectedMonthKey}_${taskId}`;
+
+            if (appState.submissions[subKey]) {
+                appState.submissions[subKey].status = 'pending';
+                appState.submissions[subKey].timestamp = Date.now();
+                saveState();
+                updateUI();
+                alert('Erledigung eingereicht! Wartet auf Freigabe der Eltern.');
+            }
+        }
+
+        function approveSubmission(subKey) {
+            const sub = appState.submissions[subKey];
+            if (!sub) return;
+
+            const [childId, monthKey, taskId] = subKey.split('_');
+            const task = appState.tasks.find(t => t.id === taskId);
+            
+            sub.status = 'approved';
+
+            const earned = sub.stars * (task ? task.rate : 1.00);
+            appState.balances[childId] = (appState.balances[childId] || 0) + earned;
+
+            saveState();
+            updateUI();
+        }
+
+        function rejectSubmission(subKey) {
+            delete appState.submissions[subKey];
+            saveState();
+            updateUI();
+        }
+
+        function changeMonth(delta) {
+            const [y, m] = appState.selectedMonthKey.split('-').map(Number);
+            const date = new Date(y, m - 1 + delta, 1);
+            appState.selectedMonthKey = date.toISOString().slice(0, 7);
+            updateUI();
+        }
+
+        function jumpToToday() {
+            appState.selectedMonthKey = new Date().toISOString().slice(0, 7);
+            updateUI();
+        }
+
+        function openPayoutModal() {
+            document.getElementById('payout-modal').classList.remove('hidden');
+        }
+
+        function closePayoutModal() {
+            document.getElementById('payout-modal').classList.add('hidden');
+        }
+
+        function handlePayoutSubmit(e) {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('payout-amount').value);
+            const method = document.getElementById('payout-method').value;
+            const details = document.getElementById('payout-details').value;
+
+            const activeChildId = appState.activeChildId;
+            const currentBalance = appState.balances[activeChildId] || 0;
+
+            if (amount > currentBalance) {
+                alert('Auszahlungsbetrag übersteigt dein freigegebenes Guthaben!');
+                return;
+            }
+
+            appState.payouts.push({
+                id: 'p_' + Date.now(),
+                childId: activeChildId,
+                amount: amount,
+                method: method,
+                details: details,
+                status: 'pending',
+                timestamp: Date.now()
+            });
+
+            saveState();
+            closePayoutModal();
+            updateUI();
+            alert('Auszahlungsanfrage wurde an die Eltern gesendet!');
+        }
+
+        function approvePayout(payoutId) {
+            const payout = appState.payouts.find(p => p.id === payoutId);
+            if (!payout) return;
+
+            payout.status = 'approved';
+            appState.balances[payout.childId] = Math.max(0, (appState.balances[payout.childId] || 0) - payout.amount);
+
+            saveState();
+            updateUI();
+        }
+
+        function openSettingsModal() {
+            document.getElementById('settings-modal').classList.remove('hidden');
+            renderSettingsTab();
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').classList.add('hidden');
+        }
+
+        function switchSettingsTab(tab) {
+            if (tab === 'users') {
+                document.getElementById('tab-users').classList.remove('hidden');
+                document.getElementById('tab-tasks').classList.add('hidden');
+                document.getElementById('tab-btn-users').className = "pb-2 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600";
+                document.getElementById('tab-btn-tasks').className = "pb-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700";
+            } else {
+                document.getElementById('tab-users').classList.add('hidden');
+                document.getElementById('tab-tasks').classList.remove('hidden');
+                document.getElementById('tab-btn-tasks').className = "pb-2 text-sm font-bold border-b-2 border-indigo-600 text-indigo-600";
+                document.getElementById('tab-btn-users').className = "pb-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700";
+            }
+            renderSettingsTab();
+        }
+
+        function renderSettingsTab() {
+            const usersList = document.getElementById('users-list');
+            usersList.innerHTML = appState.users.map(u => `
+                <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
+                    <div class="flex items-center space-x-3">
+                        <span class="text-2xl">${u.avatar}</span>
+                        <div>
+                            <p class="text-sm font-bold text-slate-800">${u.name}</p>
+                            <p class="text-xs text-slate-500">${u.role === 'parent' ? 'Elternteil' : 'Kind'}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="password" placeholder="Neues PW" id="reset-pw-${u.id}" class="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs w-28">
+                        <button type="button" onclick="resetUserPassword('${u.id}')" class="bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-semibold px-2.5 py-1 rounded-lg hover:bg-indigo-100">Speichern</button>
+                    </div>
+                </div>
+            `).join('');
+
+            const tasksList = document.getElementById('settings-tasks-list');
+            tasksList.innerHTML = appState.tasks.map(t => `
+                <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
+                    <div>
+                        <p class="text-sm font-bold text-slate-800">${t.title}</p>
+                        <p class="text-xs text-slate-500">${t.category}</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs font-bold text-slate-600">Tarif:</span>
+                        <input type="number" step="0.10" min="0.10" value="${t.rate}" id="rate-task-${t.id}" class="w-20 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold">
+                        <span class="text-xs text-slate-500">€/⭐</span>
+                        <button type="button" onclick="updateTaskRate('${t.id}')" class="bg-indigo-600 text-white text-xs font-semibold px-2 py-1 rounded-lg">Update</button>
+                        <button type="button" onclick="deleteTask('${t.id}')" class="text-rose-600 hover:bg-rose-50 p-1 rounded-lg">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function resetUserPassword(userId) {
+            const input = document.getElementById(`reset-pw-${userId}`);
+            const newPw = input ? input.value : '';
+            if (!newPw) {
+                alert('Bitte ein neues Passwort eingeben.');
+                return;
+            }
+
+            const user = appState.users.find(u => u.id === userId);
+            if (user) {
+                user.password = newPw;
+                saveState();
+                alert(`Passwort für ${user.name} erfolgreich geändert!`);
+                input.value = '';
+                renderSettingsTab();
+            }
+        }
+
+        function handleAddUser(e) {
+            e.preventDefault();
+            const name = document.getElementById('new-user-name').value;
+            const password = document.getElementById('new-user-password').value;
+            const role = document.getElementById('new-user-role').value;
+            const avatar = document.getElementById('new-user-avatar').value;
+
+            const id = name.toLowerCase().replace(/\s+/g, '');
+
+            if (appState.users.some(u => u.id === id)) {
+                alert('Ein Benutzer mit diesem Namen existiert bereits!');
+                return;
+            }
+
+            appState.users.push({
+                id: id,
+                name: name,
+                role: role,
+                avatar: avatar,
+                password: password
+            });
+
+            if (role === 'child' && !appState.balances[id]) {
+                appState.balances[id] = 0.00;
+            }
+
+            saveState();
+            populateUserSelect();
+            renderSettingsTab();
+            updateUI();
+
+            document.getElementById('new-user-name').value = '';
+            document.getElementById('new-user-password').value = '';
+            alert(`Benutzer "${name}" wurde erfolgreich hinzugefügt!`);
+        }
+
+        function updateTaskRate(taskId) {
+            const newRate = parseFloat(document.getElementById(`rate-task-${taskId}`).value);
+            const task = appState.tasks.find(t => t.id === taskId);
+            if (task && newRate > 0) {
+                task.rate = newRate;
+                saveState();
+                updateUI();
+                alert(`Tarif für "${task.title}" auf ${newRate.toFixed(2)} €/⭐ aktualisiert!`);
+            }
+        }
+
+        function deleteTask(taskId) {
+            appState.tasks = appState.tasks.filter(t => t.id !== taskId);
+            saveState();
+            updateUI();
+            renderSettingsTab();
+        }
+
+        function handleAddTask(e) {
+            e.preventDefault();
+            const title = document.getElementById('new-task-title').value;
+            const category = document.getElementById('new-task-category').value;
+            const rate = parseFloat(document.getElementById('new-task-rate').value);
+
+            appState.tasks.push({
+                id: 't_' + Date.now(),
+                title: title,
+                category: category,
+                rate: rate
+            });
+
+            saveState();
+            updateUI();
+            renderSettingsTab();
+            document.getElementById('new-task-title').value = '';
         }
     </script>
 </body>
